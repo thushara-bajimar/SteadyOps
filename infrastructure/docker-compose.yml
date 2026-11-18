@@ -1,0 +1,50 @@
+# SteadyOps on Docker Compose.
+#   cp .env.example .env   # set SUPERVISOR_TOKEN and CHAOS_TOKEN to long random values
+#   docker compose -f infrastructure/docker-compose.yml --env-file .env up --build
+# Dashboard: http://localhost:8010
+#
+# Security notes:
+# * The SteadyOps container does NOT mount /var/run/docker.sock. It can only reach
+#   the demo-stack supervisor's narrow, token-protected HTTP API.
+# * Ports are published on 127.0.0.1 only.
+name: steadyops
+services:
+  demo-stack:
+    build: { context: .., dockerfile: infrastructure/docker/Dockerfile.demo-stack }
+    environment:
+      SUPERVISOR_TOKEN: ${SUPERVISOR_TOKEN:?set SUPERVISOR_TOKEN in .env}
+      CHAOS_TOKEN: ${CHAOS_TOKEN:?set CHAOS_TOKEN in .env}
+    ports:
+      - "127.0.0.1:8101:8101"   # demo shop (frontend-service)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/healthz')"]
+      interval: 5s
+      retries: 10
+    mem_limit: 768m
+    cpus: 1.5
+
+  steadyops:
+    build: { context: .., dockerfile: infrastructure/docker/Dockerfile.steadyops }
+    depends_on:
+      demo-stack: { condition: service_healthy }
+    environment:
+      SUPERVISOR_TOKEN: ${SUPERVISOR_TOKEN}
+      CHAOS_TOKEN: ${CHAOS_TOKEN}
+      SUPERVISOR_URL: http://demo-stack:8100
+      FRONTEND_SERVICE_URL: http://demo-stack:8101
+      API_SERVICE_URL: http://demo-stack:8102
+      DATABASE_SERVICE_URL: http://demo-stack:8103
+      DEPENDENCY_SERVICE_URL: http://demo-stack:8104
+      STEADYOPS_DB_PATH: /app/runtime-data/steadyops.db
+      STEADYOPS_AUTONOMY_MODE: ${STEADYOPS_AUTONOMY_MODE:-auto}
+    ports:
+      - "127.0.0.1:8010:8010"
+    volumes:
+      - steadyops-data:/app/runtime-data
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  steadyops-data:

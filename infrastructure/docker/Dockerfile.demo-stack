@@ -1,0 +1,11 @@
+# Demo workload: supervisor + the four demo services in one container.
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install --no-cache-dir fastapi==0.115.6 "uvicorn[standard]==0.34.0" httpx==0.28.1 psutil==6.1.1 pydantic==2.10.4 \
+ && useradd --create-home --uid 10001 demo
+COPY demo-services/ /app/demo-services/
+RUN mkdir -p /app/runtime-data && chown -R demo /app/runtime-data
+USER demo
+ENV BIND_HOST=0.0.0.0 SUPERVISOR_BIND=0.0.0.0 PYTHONUNBUFFERED=1
+EXPOSE 8100 8101 8102 8103 8104
+CMD ["python", "demo-services/supervisor/supervisor.py"]

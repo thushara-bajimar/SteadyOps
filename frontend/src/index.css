@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens (RGB triplets so Tailwind can apply alpha).
+   Chart series + status colors follow the validated dataviz reference palette;
+   dark mode uses its own selected steps, not an automatic inversion. */
+:root {
+  color-scheme: light;
+  --page: 244 244 241;
+  --surface: 252 252 251;
+  --sunken: 238 238 234;
+  --line: 222 221 215;
+  --ink: 11 11 11;
+  --ink2: 82 81 78;
+  --muted: 112 111 106;
+  --accent: 28 92 171;
+  --good: 12 133 12;
+  --warning: 176 115 0;
+  --serious: 196 90 46;
+  --critical: 208 59 59;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --chart-grid: #e4e3de;
+  --chart-axis: #6f6e69;
+  --chart-surface: #fcfcfb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: 17 17 16;
+    --surface: 26 26 25;
+    --sunken: 34 34 32;
+    --line: 52 52 49;
+    --ink: 240 239 236;
+    --ink2: 195 194 183;
+    --muted: 150 149 140;
+    --accent: 85 152 231;
+    --good: 12 163 12;
+    --warning: 250 178 25;
+    --serious: 236 131 90;
+    --critical: 230 103 103;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --chart-grid: #2e2e2b;
+    --chart-axis: #9a998f;
+    --chart-surface: #1a1a19;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: 17 17 16;
+  --surface: 26 26 25;
+  --sunken: 34 34 32;
+  --line: 52 52 49;
+  --ink: 240 239 236;
+  --ink2: 195 194 183;
+  --muted: 150 149 140;
+  --accent: 85 152 231;
+  --good: 12 163 12;
+  --warning: 250 178 25;
+  --serious: 236 131 90;
+  --critical: 230 103 103;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --chart-grid: #2e2e2b;
+  --chart-axis: #9a998f;
+  --chart-surface: #1a1a19;
+}
+
+html, body { background: rgb(var(--page)); color: rgb(var(--ink)); }
+body { font-feature-settings: "tnum" 1; -webkit-font-smoothing: antialiased; }
+
+@layer components {
+  .card { @apply rounded-lg border border-line bg-surface; }
+  .card-h { @apply flex items-center justify-between gap-3 border-b border-line px-4 py-3; }
+  .card-t { @apply text-sm font-semibold text-ink; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply border-accent bg-accent text-white hover:opacity-90 hover:bg-accent; }
+  .btn-danger { @apply border-critical bg-critical text-white hover:opacity-90 hover:bg-critical; }
+  .label { @apply text-xs font-medium uppercase tracking-wide text-muted; }
+  .input { @apply rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent; }
+  .tbl { @apply w-full text-sm; }
+  .tbl th { @apply border-b border-line px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted; }
+  .tbl td { @apply border-b border-line/60 px-3 py-2 align-top; }
+  .mono { @apply font-mono text-[12px]; }
+}
