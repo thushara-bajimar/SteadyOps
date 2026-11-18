@@ -36,6 +36,7 @@ def iso() -> str:
 
 class World:
     def __init__(self):
+        self.started_at = iso()
         self.svc = {n: {"version": v, "config": c, "restart_count": 0, "pid": 100 + i}
                     for i, (n, (v, c)) in enumerate(INITIAL.items())}
         self.leak = False
@@ -117,7 +118,7 @@ class World:
                 rss = 250.0
         return {"name": n, "state": state, "pid": s["pid"], "port": 0, "stateful": n == "database-service",
                 "depends_on": DEPS[n], "version": s["version"], "config_version": s["config"],
-                "restart_count": s["restart_count"], "restarts_last_120s": restarts, "started_at": iso(),
+                "restart_count": s["restart_count"], "restarts_last_120s": restarts, "started_at": self.started_at,
                 "last_exit_code": exit_code, "last_exit_at": None, "rss_mb": None if state != "running" else rss,
                 "cpu_percent": 1.0}
 

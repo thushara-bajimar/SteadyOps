@@ -53,6 +53,22 @@ def main() -> None:
         o = overview()
         return o["system_status"] == "healthy" and o["incidents"]["active"] == 0 and not o["active_injection"]
 
+    rl = c.get("/safety/policy").json()["rate_limit"]
+
+    def respect_rate_limit():
+        """The safety policy allows at most rl['max_executions'] remediations per window.
+        The harness waits rather than loosening the policy, so every run can act."""
+        while True:
+            events = c.get("/audit?event_type=remediation_started&limit=100").json()
+            now = datetime.now(timezone.utc)
+            recent = [e for e in events if (now - datetime.fromisoformat(e["ts"])).total_seconds() < rl["window_s"]]
+            if len(recent) < rl["max_executions"]:
+                return
+            oldest = min(datetime.fromisoformat(e["ts"]) for e in recent)
+            wait_s = rl["window_s"] - (now - oldest).total_seconds() + 2
+            print(f"    (rate limit {len(recent)}/{rl['max_executions']} in {rl['window_s']}s - waiting {wait_s:.0f}s)", flush=True)
+            time.sleep(max(1.0, wait_s))
+
     log = []
     for rnd in range(1, args.rounds + 1):
         for sc in args.scenarios.split(","):
@@ -60,6 +76,7 @@ def main() -> None:
                 print(f"[{sc}] system did not become quiet; resetting")
                 c.post("/failure-lab/reset", json=OP)
                 wait(quiet, 120)
+            respect_rate_limit()
             time.sleep(args.healthy_baseline_s)
             r = c.post(f"/failure-lab/{sc}/inject", json=OP)
             r.raise_for_status()
