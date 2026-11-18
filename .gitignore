@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------
+# Private learning and revision notes (NEVER commit - public repo)
+# ---------------------------------------------------------------
+private-notes/
+REVISION_NOTES/
+MY_STUDY_NOTES/
+VIVA_PREPARATION/
+PERSONAL_CODE_WALKTHROUGH/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Local databases and runtime data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+runtime-data/
+local-logs/
+
+# Generated temporary files
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+reports/_build/
+
+# Editors
+.vscode/
+.idea/
