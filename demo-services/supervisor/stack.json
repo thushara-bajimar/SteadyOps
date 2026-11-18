@@ -1,0 +1,58 @@
+{
+  "_comment": "Declarative description of the demo stack. The supervisor will ONLY start these services, ONLY deploy these versions and ONLY apply these configuration versions. Anything else is rejected.",
+  "services": {
+    "database-service": {
+      "script": "database-service/app.py",
+      "port": 8103,
+      "stateful": true,
+      "depends_on": [],
+      "initial_version": "2.1.0",
+      "initial_config": "db-cfg-1"
+    },
+    "dependency-service": {
+      "script": "dependency-service/app.py",
+      "port": 8104,
+      "stateful": false,
+      "depends_on": [],
+      "initial_version": "3.0.1",
+      "initial_config": "inv-cfg-1"
+    },
+    "api-service": {
+      "script": "api-service/app.py",
+      "port": 8102,
+      "stateful": false,
+      "depends_on": ["database-service", "dependency-service"],
+      "initial_version": "1.4.2",
+      "initial_config": "api-cfg-7"
+    },
+    "frontend-service": {
+      "script": "frontend-service/app.py",
+      "port": 8101,
+      "stateful": false,
+      "depends_on": ["api-service"],
+      "initial_version": "1.0.3",
+      "initial_config": "web-cfg-1"
+    }
+  },
+  "versions": {
+    "database-service": ["2.1.0"],
+    "dependency-service": ["3.0.1"],
+    "api-service": ["1.4.2", "1.5.0"],
+    "frontend-service": ["1.0.3"]
+  },
+  "configs": {
+    "database-service": {
+      "db-cfg-1": {"JOURNAL_MODE": "WAL"}
+    },
+    "dependency-service": {
+      "inv-cfg-1": {"CACHE_TTL_S": 30}
+    },
+    "api-service": {
+      "api-cfg-7": {"DB_POOL_SIZE": 10, "REQUEST_TIMEOUT_MS": 1500, "FEATURE_DISCOUNTS": true},
+      "api-cfg-8": {"DB_POOL_SIZE": "unlimited", "REQUEST_TIMEOUT_MS": 1500, "FEATURE_DISCOUNTS": true}
+    },
+    "frontend-service": {
+      "web-cfg-1": {"THEME": "light"}
+    }
+  }
+}
