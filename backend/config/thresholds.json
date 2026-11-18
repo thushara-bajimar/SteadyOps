@@ -1,0 +1,34 @@
+{
+  "_comment": "Detection and verification thresholds. Tuned for a laptop-scale demo; every value is configurable.",
+  "monitor": {
+    "interval_s": 2.0,
+    "health_timeout_s": 2.5,
+    "probe_requests_per_tick": 4,
+    "probe_window_ticks": 4
+  },
+  "detection": {
+    "consecutive_ticks_to_open": 2,
+    "error_rate_threshold": 0.2,
+    "min_probe_samples": 6,
+    "latency_p95_threshold_ms": 900,
+    "memory_rss_threshold_mb": 200,
+    "cpu_threshold_percent": 95,
+    "crash_loop_restarts": 2,
+    "resolved_cooldown_s": 10,
+    "auto_close_healthy_ticks": 5
+  },
+  "investigation": {
+    "change_lookback_s": 900,
+    "known_good_after_s": 20,
+    "log_lines_per_service": 200,
+    "max_log_evidence_lines": 12,
+    "ambiguity_min_confidence": 0.5,
+    "ambiguity_min_margin": 0.15
+  },
+  "verification": {
+    "check_interval_s": 2.0,
+    "required_consecutive_healthy": 4,
+    "stabilization_s": 8.0,
+    "timeout_s": 45.0
+  }
+}

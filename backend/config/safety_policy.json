@@ -1,0 +1,47 @@
+{
+  "_comment": "SteadyOps safety policy. Loaded read-only at startup. No API can modify it; the agent's diagnosis cannot override it.",
+  "auto_execute_min_confidence": 0.7,
+  "max_actions_per_incident": 2,
+  "max_services_affected_per_incident": 1,
+  "rate_limit": {"max_executions": 6, "window_s": 600},
+  "dry_run_valid_for_s": 300,
+  "actions": {
+    "check_health":        {"category": 1, "description": "Read health endpoints of monitored services"},
+    "read_logs":           {"category": 1, "description": "Read recent structured logs of a monitored service"},
+    "collect_metrics":     {"category": 1, "description": "Read process and probe metrics"},
+    "inspect_deployments": {"category": 1, "description": "Read deployment and configuration history"},
+
+    "restart_service": {
+      "category": 2,
+      "description": "Restart a stateless demo service process",
+      "resources": ["api-service", "dependency-service", "frontend-service"],
+      "approval_resources": ["database-service"],
+      "timeout_s": 30,
+      "max_retries": 1,
+      "max_attempts_per_incident": 1
+    },
+    "rollback_deployment": {
+      "category": 2,
+      "description": "Redeploy the last known-good version of a service",
+      "resources": ["api-service"],
+      "approval_resources": [],
+      "timeout_s": 30,
+      "max_retries": 1,
+      "max_attempts_per_incident": 1
+    },
+    "restore_config": {
+      "category": 2,
+      "description": "Re-apply the last known-good configuration version",
+      "resources": ["api-service"],
+      "approval_resources": [],
+      "timeout_s": 30,
+      "max_retries": 1,
+      "max_attempts_per_incident": 1
+    },
+
+    "stop_service":         {"category": 3, "description": "Stop a service (reduces availability)", "forbidden": true},
+    "purge_database_data":  {"category": 3, "description": "Delete persistent data", "forbidden": true},
+    "delete_service":       {"category": 3, "description": "Remove a service from the stack", "forbidden": true},
+    "modify_permissions":   {"category": 3, "description": "Change infrastructure permissions", "forbidden": true}
+  }
+}
