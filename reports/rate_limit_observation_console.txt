@@ -1,0 +1,20 @@
+round 1 [bad_deployment] injected #1
+    -> resolved diagnosed=bad_deployment action=rollback_deployment ttd=2.6s ttr=15.27s
+round 1 [broken_config] injected #2
+    -> resolved diagnosed=broken_config action=restore_config ttd=5.81s ttr=23.14s
+round 1 [resource_exhaustion] injected #3
+    -> resolved diagnosed=resource_exhaustion action=restart_service ttd=9.68s ttr=21.25s
+round 1 [dependency_failure] injected #4
+    -> resolved diagnosed=dependency_failure action=restart_service ttd=7.24s ttr=22.62s
+round 1 [dependency_outage] injected #5
+    -> escalated diagnosed=dependency_failure action=restart_service ttd=6.0s ttr=Nones
+round 1 [bad_deployment_corrupt_rollback] injected #6
+    -> escalated diagnosed=bad_deployment action=rollback_deployment ttd=2.35s ttr=Nones
+round 2 [bad_deployment] injected #7
+    -> escalated diagnosed=bad_deployment action=None ttd=4.98s ttr=Nones
+round 2 [broken_config] injected #8
+    -> escalated diagnosed=broken_config action=None ttd=5.16s ttr=Nones
+round 2 [resource_exhaustion] injected #9
+    -> escalated diagnosed=resource_exhaustion action=None ttd=9.33s ttr=Nones
+round 2 [dependency_failure] injected #10
+    -> escalated diagnosed=dependency_failure action=None ttd=5.91s ttr=Nones
