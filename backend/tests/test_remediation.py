@@ -149,3 +149,14 @@ def test_recovery_time_is_measured(healthy_rt):
     assert run["diagnosis_correct"] is True and run["action_correct"] is True
     assert run["ttd_s"] is not None and run["ttr_s"] is not None and run["ttr_s"] >= run["ttd_s"]
     assert s["summary"]["false_positives"] == 0
+    assert s["summary"]["remediation_success_rate"] == 1.0, "verifications must be counted when nothing is excluded"
+    assert s["summary"]["incident_resolution_rate"] == 1.0
+
+
+def test_rollback_metrics_counted(healthy_rt):
+    from app import analytics
+
+    pipeline(healthy_rt, "bad_deployment_corrupt_rollback")
+    s = analytics.compute(healthy_rt.db)["summary"]
+    assert s["rollbacks"] == 1 and s["rollback_success_rate"] == 1.0
+    assert s["remediation_success_rate"] == 0.0

@@ -71,7 +71,7 @@ export default function Analytics() {
         <p className="mt-2 text-xs text-muted">A missing recovery bar means the incident was escalated rather than auto-recovered. For the outage and corrupted-rollback scenarios that is the intended result.</p>
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4">
         <Card title="By scenario" bodyClass="overflow-x-auto p-0">
           <table className="tbl">
             <thead><tr><th>Scenario</th><th>Runs</th><th>Detected</th><th>Correct dx</th><th>Resolved</th><th>Escalated</th><th>MTTD</th><th>MTTR</th></tr></thead>
@@ -80,7 +80,7 @@ export default function Analytics() {
             ))}</tbody>
           </table>
         </Card>
-        <Card title="Individual runs (table view)" bodyClass="max-h-96 overflow-auto p-0">
+        <Card title="Individual runs (table view)" bodyClass="max-h-[36rem] overflow-auto p-0">
           <table className="tbl">
             <thead><tr><th>#</th><th>Scenario</th><th>Diagnosed</th><th>Action</th><th>Outcome</th><th>TTD</th><th>TTR</th></tr></thead>
             <tbody>{data.runs.slice().reverse().map((r) => (

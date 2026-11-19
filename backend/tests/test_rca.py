@@ -85,3 +85,22 @@ def test_log_content_cannot_inject_actions(healthy_rt):
     d = diagnose(_ctx(rt, iid), rt.settings.thresholds)
     assert d["recommended"]["action_id"] == "rollback_deployment"
     assert d["recommended"]["resource"] == "api-service"
+
+
+def test_logs_from_a_previous_incident_do_not_contaminate_the_next(healthy_rt):
+    """Regression: a bad deployment right after a fixed broken-config incident was diagnosed with
+    confidence 0.65 because the 90 s log window still contained the old FATAL config errors."""
+    from conftest import run_ticks
+
+    rt = healthy_rt
+    first = detect(rt, "broken_config")
+    rt.orchestrator.run_pipeline(first)
+    assert rt.incidents.get(first)["status"] == "resolved"
+    rt.lab.reset("pytest")
+    run_ticks(rt, 1)
+    rt.db.execute("UPDATE incidents SET resolved_at='2000-01-01T00:00:00+00:00' WHERE id=?", (first,))  # skip cooldown
+    second = detect(rt, "bad_deployment")
+    d = diagnose(_ctx(rt, second), rt.settings.thresholds)
+    assert d["category"] == "bad_deployment"
+    assert not d.get("contradicting"), d.get("contradicting")
+    assert d["confidence"] >= 0.9

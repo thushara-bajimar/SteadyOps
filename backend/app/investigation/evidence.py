@@ -64,6 +64,15 @@ class EvidenceCollector:
         return self.db.insert("evidence", {"incident_id": incident_id, "kind": kind, "source": source, "service": service,
                                            "summary": summary, "data_json": redact(data), "collected_at": utcnow()})
 
+    def _last_change_before(self, service: str, ts: str) -> list[str]:
+        row = self.db.one(
+            "SELECT MAX(t) AS t FROM ("
+            " SELECT deployed_at AS t FROM deployments WHERE service=? AND deployed_at<=?"
+            " UNION ALL SELECT changed_at FROM config_changes WHERE service=? AND changed_at<=?"
+            " UNION ALL SELECT ts FROM runtime_events WHERE service=? AND ts<=? AND kind='restart')",
+            (service, ts, service, ts, service, ts))
+        return [row["t"]] if row and row["t"] else []
+
     def collect(self, incident: dict, obs: Observation) -> dict:
         iid = incident["id"]
         refs: dict[str, int] = {}
@@ -120,12 +129,15 @@ class EvidenceCollector:
                     "SELECT kind, actor, data_json, ts FROM runtime_events WHERE service=? AND ts>=? ORDER BY ts DESC LIMIT 10",
                     (s, lookback))],
             }
-        summary = []
-        for s, c in changes.items():
+        events = []
+        for svc_name, c in changes.items():
             for d in c["deployments"]:
-                summary.append(f"{s} deployed {d['from_version']}->{d['to_version']} by {d['actor']} at {d['deployed_at'][11:19]}")
+                events.append((d["deployed_at"], f"{svc_name} deployed {d['from_version']}->{d['to_version']} by {d['actor']} at {d['deployed_at'][11:19]}"))
             for d in c["config_changes"]:
-                summary.append(f"{s} config {d['from_config']}->{d['to_config']} by {d['actor']} at {d['changed_at'][11:19]}")
+                events.append((d["changed_at"], f"{svc_name} config {d['from_config']}->{d['to_config']} by {d['actor']} at {d['changed_at'][11:19]}"))
+        events.sort(reverse=True)
+        # Most recent first; the full history stays in the evidence data.
+        summary = [e[1] for e in events[:3]] + ([f"(+{len(events) - 3} earlier changes in the lookback window)"] if len(events) > 3 else [])
         refs["changes"] = self._store(iid, "recent_changes", "deployment & config history",
                                       "; ".join(summary) or "no deployments or config changes in the lookback window", changes)
 
@@ -141,8 +153,13 @@ class EvidenceCollector:
 
         # 6. Logs (redacted, filtered) ----------------------------------------
         logs, findings = {}, {}
-        log_since = (parse_ts(incident["first_abnormal_at"]) - timedelta(seconds=90)).isoformat()
+        window_start = (parse_ts(incident["first_abnormal_at"]) - timedelta(seconds=90)).isoformat()
         for s in sorted(candidates):
+            # Logs written before the service's most recent deliberate change (deploy, config change,
+            # operator/agent restart) describe a PREVIOUS state - e.g. the already-fixed crash loop of an
+            # earlier incident - and must not count as evidence about the current one. Crash-loop
+            # auto-restarts and process exits are not changes, so they do not move the window.
+            log_since = max([window_start] + self._last_change_before(s, incident["detected_at"]))
             try:
                 records = self.read.logs(s, lines=self.t["log_lines_per_service"])
             except SupervisorError as exc:

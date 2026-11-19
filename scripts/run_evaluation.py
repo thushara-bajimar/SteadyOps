@@ -71,8 +71,13 @@ def main() -> None:
                                            "dependency_outage,bad_deployment_corrupt_rollback")
     ap.add_argument("--healthy-baseline-s", type=float, default=25.0,
                     help="healthy time required before each injection (known-good marking needs 20 s)")
+    ap.add_argument("--report-only", action="store_true",
+                    help="do not inject anything; regenerate reports/ from the data already recorded")
     args = ap.parse_args()
     c = httpx.Client(base_url=args.base, timeout=30)
+    if args.report_only:
+        finish(c, args)
+        return
 
     def overview():
         return c.get("/overview").json()

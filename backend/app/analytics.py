@@ -56,7 +56,8 @@ def compute(db: Database) -> dict:
         })
 
     incidents = [i for i in db.query("SELECT id, status, escalated_at FROM incidents") if i["id"] not in excluded_incidents]
-    excluded_execs = ",".join(str(i) for i in excluded_incidents) or "NULL"
+    # NOTE: never "NOT IN (NULL)" - that matches no rows at all. -1 is a safe sentinel id.
+    excluded_execs = ",".join(str(int(i)) for i in excluded_incidents) or "-1"
     linked = {r["incident_id"] for r in runs if r["incident_id"]}
     diagnosed = [p for p in per_run if p["diagnosis_correct"] is not None]
     acted = [p for p in per_run if p["action_correct"] is not None]
