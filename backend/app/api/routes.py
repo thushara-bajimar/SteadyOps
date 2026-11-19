@@ -287,6 +287,21 @@ def inject(scenario: str, body: OperatorBody, request: Request):
         raise HTTPException(502, str(exc))
 
 
+class ExcludeBody(OperatorBody):
+    reason: str = Field(min_length=5, max_length=300)
+
+
+@router.post("/failure-lab/injections/{injection_id}/exclude")
+def exclude_injection(injection_id: int, body: ExcludeBody, request: Request):
+    """Flag a run as invalid for measurement (e.g. the host suspended). Audited; never deletes data."""
+    try:
+        return rt(request).lab.exclude(injection_id, body.operator, body.reason)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc))
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+
 @router.post("/failure-lab/reset")
 def reset(body: OperatorBody, request: Request):
     try:

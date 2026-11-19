@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS failure_injections (
     actor              TEXT NOT NULL,
     injected_at        TEXT NOT NULL,
     reset_at           TEXT,
-    incident_id        INTEGER REFERENCES incidents(id)
+    incident_id        INTEGER REFERENCES incidents(id),
+    excluded_reason    TEXT  -- set (audited) when a run is invalid, e.g. the host suspended mid-run
 );
 
 CREATE TABLE IF NOT EXISTS incidents (

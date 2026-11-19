@@ -69,3 +69,18 @@ def test_logs_endpoint_redacts(client, rt):
     body = client.get("/api/services/api-service/logs").text
     assert "topsecret" not in body
     assert client.get("/api/services/not-a-service/logs").status_code == 404
+
+
+def test_excluded_run_is_removed_from_metrics_but_kept_visible(client, rt):
+    client.post("/api/failure-lab/bad_deployment/inject", json=OP)
+    _, new = run_ticks(rt, 4)
+    rt.orchestrator.run_pipeline(new[0])
+    assert client.get("/api/analytics").json()["summary"]["injections"] == 1
+    r = client.post("/api/failure-lab/injections/1/exclude", json={**OP, "reason": "host suspended mid-run"})
+    assert r.status_code == 200
+    a = client.get("/api/analytics").json()
+    assert a["summary"]["injections"] == 0 and a["summary"]["incidents_total"] == 0
+    assert a["excluded_runs"][0]["excluded_reason"] == "host suspended mid-run"
+    assert client.post("/api/failure-lab/injections/1/exclude", json={**OP, "reason": "again please"}).status_code == 409
+    assert client.post("/api/failure-lab/injections/99/exclude", json={**OP, "reason": "missing run"}).status_code == 404
+    assert rt.db.one("SELECT * FROM audit_events WHERE event_type='injection_excluded'")

@@ -97,6 +97,17 @@ class FailureLab:
         self.audit.record(operator, "failure_injected", {"scenario": scenario, "injection_id": inj_id})
         return {"injection_id": inj_id, "scenario": scenario}
 
+    def exclude(self, injection_id: int, operator: str, reason: str) -> dict:
+        """Mark a run as invalid for measurement (it stays visible, flagged, and audited)."""
+        row = self.db.one("SELECT id, excluded_reason FROM failure_injections WHERE id=?", (injection_id,))
+        if row is None:
+            raise LookupError("injection not found")
+        if row["excluded_reason"]:
+            raise ValueError("injection already excluded")
+        self.db.execute("UPDATE failure_injections SET excluded_reason=? WHERE id=?", (reason, injection_id))
+        self.audit.record(operator, "injection_excluded", {"injection_id": injection_id, "reason": reason})
+        return {"injection_id": injection_id, "excluded_reason": reason}
+
     def reset(self, operator: str) -> dict:
         result = self.chaos.reset()
         now = utcnow()

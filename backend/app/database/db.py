@@ -49,6 +49,10 @@ class Database:
 
     def init_schema(self) -> None:
         self.conn().executescript(SCHEMA.read_text(encoding="utf-8"))
+        # Lightweight migration for databases created before a column existed.
+        cols = {r[1] for r in self.conn().execute("PRAGMA table_info(failure_injections)")}
+        if "excluded_reason" not in cols:
+            self.conn().execute("ALTER TABLE failure_injections ADD COLUMN excluded_reason TEXT")
 
     def execute(self, sql: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
         with self.write_lock:

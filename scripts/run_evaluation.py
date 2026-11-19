@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,17 +26,44 @@ REPO = Path(__file__).resolve().parent.parent
 OP = {"operator": "evaluation-harness"}
 
 
-def wait(pred, timeout: float, every: float = 1.0):
+class HostSuspended(RuntimeError):
+    """The wall clock jumped: the machine slept, so the run's timings are meaningless."""
+
+
+def wait(pred, timeout: float, every: float = 1.0, max_gap: float = 30.0):
     deadline = time.time() + timeout
+    last = time.time()
     while time.time() < deadline:
         v = pred()
         if v:
             return v
         time.sleep(every)
+        now = time.time()
+        if now - last > every + max_gap:
+            raise HostSuspended(f"wall clock jumped {now - last:.0f}s")
+        last = now
     return None
 
 
+def quiet_fn(c):
+    def quiet():
+        o = c.get("/overview").json()
+        return o["system_status"] == "healthy" and o["incidents"]["active"] == 0 and not o["active_injection"]
+    return quiet
+
+
+def keep_awake() -> None:
+    """Ask Windows not to sleep while this process runs (released automatically on exit).
+    A suspend mid-run would invalidate timings; such runs are also detected and excluded."""
+    if sys.platform == "win32":
+        import ctypes
+
+        ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+
+
 def main() -> None:
+    keep_awake()
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:8010/api")
     ap.add_argument("--rounds", type=int, default=3)
@@ -72,36 +100,54 @@ def main() -> None:
     log = []
     for rnd in range(1, args.rounds + 1):
         for sc in args.scenarios.split(","):
-            if not wait(quiet, 120):
-                print(f"[{sc}] system did not become quiet; resetting")
-                c.post("/failure-lab/reset", json=OP)
-                wait(quiet, 120)
-            respect_rate_limit()
-            time.sleep(args.healthy_baseline_s)
-            r = c.post(f"/failure-lab/{sc}/inject", json=OP)
-            r.raise_for_status()
-            inj = r.json()["injection_id"]
-            print(f"round {rnd} [{sc}] injected #{inj}", flush=True)
+            for attempt in range(3):
+                try:
+                    log.append(run_one(c, rnd, sc, quiet, respect_rate_limit, args))
+                    break
+                except HostSuspended as exc:
+                    print(f"    !! host suspended during run ({exc}); excluding it and repeating", flush=True)
+                    c.post("/failure-lab/reset", json=OP)
+                    wait(quiet, 180)
+    finish(c, args)
 
-            def terminal():
-                runs = c.get("/analytics").json()["runs"]
-                run = next(x for x in runs if x["injection_id"] == inj)
-                if run["incident_id"]:
-                    inc = c.get(f"/incidents/{run['incident_id']}").json()["incident"]
-                    if inc["status"] in ("resolved", "escalated", "closed"):
-                        return run
-                return None
 
-            run = wait(terminal, 150, 2)
-            if run is None:
-                runs = c.get("/analytics").json()["runs"]
-                run = next(x for x in runs if x["injection_id"] == inj)
-            print(f"    -> {run['outcome']} diagnosed={run['diagnosed_category']} action={run['executed_action']} "
-                  f"ttd={run['ttd_s']}s ttr={run['ttr_s']}s", flush=True)
-            log.append(run)
-            c.post("/failure-lab/reset", json=OP).raise_for_status()
+def run_one(c, rnd, sc, quiet, respect_rate_limit, args):
+    """Inject one scenario, wait for a terminal incident state, record, reset."""
+    if not wait(quiet, 120):
+        print(f"[{sc}] system did not become quiet; resetting")
+        c.post("/failure-lab/reset", json=OP)
+        wait(quiet, 120)
+    respect_rate_limit()
+    time.sleep(args.healthy_baseline_s)
+    r = c.post(f"/failure-lab/{sc}/inject", json=OP)
+    r.raise_for_status()
+    inj = r.json()["injection_id"]
+    print(f"round {rnd} [{sc}] injected #{inj}", flush=True)
 
-    wait(quiet, 120)
+    def terminal():
+        run = next(x for x in c.get("/analytics").json()["runs"] if x["injection_id"] == inj)
+        if run["incident_id"]:
+            inc = c.get(f"/incidents/{run['incident_id']}").json()["incident"]
+            if inc["status"] in ("resolved", "escalated", "closed"):
+                return run
+        return None
+
+    try:
+        run = wait(terminal, 150, 2)
+    except HostSuspended as exc:
+        c.post(f"/failure-lab/injections/{inj}/exclude",
+               json={**OP, "reason": f"host suspended mid-run ({exc}); timings invalid"})
+        raise
+    if run is None:
+        run = next(x for x in c.get("/analytics").json()["runs"] if x["injection_id"] == inj)
+    print(f"    -> {run['outcome']} diagnosed={run['diagnosed_category']} action={run['executed_action']} "
+          f"ttd={run['ttd_s']}s ttr={run['ttr_s']}s", flush=True)
+    c.post("/failure-lab/reset", json=OP).raise_for_status()
+    return run
+
+
+def finish(c, args):
+    wait(quiet_fn(c), 120)
     analytics = c.get("/analytics").json()
     out = {"generated_at": datetime.now(timezone.utc).isoformat(), "rounds": args.rounds,
            "scenarios": args.scenarios.split(","), "analytics": analytics,
@@ -155,6 +201,13 @@ def render_md(out: dict) -> str:
     for r in out["analytics"]["runs"]:
         lines.append(f"| {r['injection_id']} | {r['scenario']} | {r['diagnosed_category']} | {r['executed_action']} | "
                      f"{r['outcome']} | {fmt(r['ttd_s'])} | {fmt(r['ttr_s'])} | {fmt(r['time_to_escalate_s'])} |")
+    ex = out["analytics"].get("excluded_runs", [])
+    lines += ["", "## Excluded runs", ""]
+    if ex:
+        lines += ["| # | Scenario | Reason |", "|---|---|---|"]
+        lines += [f"| {e['injection_id']} | {e['scenario']} | {e['excluded_reason']} |" for e in ex]
+    else:
+        lines.append("None.")
     lines += ["", "Expected outcomes: `dependency_outage` and `bad_deployment_corrupt_rollback` are designed to end in "
               "escalation (they cannot be fixed safely); for those, escalation is the correct result.", ""]
     return "\n".join(lines)

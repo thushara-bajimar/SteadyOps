@@ -23,10 +23,14 @@ def _stats(values: list[float]) -> dict:
 
 
 def compute(db: Database) -> dict:
+    excluded = db.query("SELECT id AS injection_id, scenario, injected_at, incident_id, excluded_reason "
+                        "FROM failure_injections WHERE excluded_reason IS NOT NULL ORDER BY id")
+    excluded_incidents = {e["incident_id"] for e in excluded if e["incident_id"]}
     runs = db.query(
         "SELECT f.*, i.detected_at, i.diagnosed_at, i.remediation_started_at, i.remediation_completed_at, i.resolved_at, "
         "i.escalated_at, i.closed_at, i.status AS incident_status, i.category AS diagnosed_category, "
-        "i.root_service AS diagnosed_service FROM failure_injections f LEFT JOIN incidents i ON i.id=f.incident_id ORDER BY f.id")
+        "i.root_service AS diagnosed_service FROM failure_injections f LEFT JOIN incidents i ON i.id=f.incident_id "
+        "WHERE f.excluded_reason IS NULL ORDER BY f.id")
     per_run = []
     for r in runs:
         execs = db.query("SELECT action_id, resource FROM remediation_executions WHERE incident_id=? ORDER BY id",
@@ -51,13 +55,14 @@ def compute(db: Database) -> dict:
             "time_to_escalate_s": seconds_between(r["injected_at"], r["escalated_at"]),
         })
 
-    incidents = db.query("SELECT id, status, escalated_at FROM incidents")
+    incidents = [i for i in db.query("SELECT id, status, escalated_at FROM incidents") if i["id"] not in excluded_incidents]
+    excluded_execs = ",".join(str(i) for i in excluded_incidents) or "NULL"
     linked = {r["incident_id"] for r in runs if r["incident_id"]}
     diagnosed = [p for p in per_run if p["diagnosis_correct"] is not None]
     acted = [p for p in per_run if p["action_correct"] is not None]
     closed_runs = [p for p in per_run if p["outcome"] in ("resolved", "escalated", "closed", "not_detected")]
-    ver = db.query("SELECT result FROM verifications")
-    rb = db.query("SELECT status FROM rollbacks WHERE status != 'skipped'")
+    ver = db.query(f"SELECT result FROM verifications WHERE incident_id NOT IN ({excluded_execs})")
+    rb = db.query(f"SELECT status FROM rollbacks WHERE status != 'skipped' AND incident_id NOT IN ({excluded_execs})")
     blocked = db.query("SELECT phase, COUNT(*) AS n FROM policy_decisions WHERE outcome='deny' GROUP BY phase")
     approvals = db.query("SELECT decision, COUNT(*) AS n FROM approvals GROUP BY decision")
     by_scenario = {}
@@ -99,5 +104,6 @@ def compute(db: Database) -> dict:
             "approvals": {a["decision"]: a["n"] for a in approvals},
         },
         "by_scenario": by_scenario,
+        "excluded_runs": excluded,
         "runs": per_run,
     }
