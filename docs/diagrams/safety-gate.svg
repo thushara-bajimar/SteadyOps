@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+  <rect width="1000" height="300" fill="#ffffff"/>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker></defs>
+  <text x="24" y="34" font-size="20" font-weight="700" fill="#0b0b0b">The safety gate: every check, every time</text>
+  <text x="24" y="54" fill="#52514e">Evaluated at plan time and again immediately before execution. Any failed hard check = DENY (recorded, audited, escalated).</text>
+  <rect x="24" y="80" width="150" height="56" rx="8" fill="#f4f4f1" stroke="#9a998f"/>
+  <text x="99" y="104" text-anchor="middle" font-weight="700">Proposal</text>
+  <text x="99" y="122" text-anchor="middle" font-size="11.5" fill="#52514e">action, resource, params</text>
+  <line x1="174" y1="108" x2="200" y2="108" stroke="#52514e" stroke-width="1.6" marker-end="url(#a)"/>
+  <g font-size="12">
+    <rect x="202" y="72" width="600" height="160" rx="10" fill="#fdeee8" stroke="#c4512b" stroke-width="2"/>
+    <text x="216" y="96"  >1. action in code catalogue AND policy file</text>
+    <text x="216" y="116" >2. not a forbidden (category 3) action</text>
+    <text x="216" y="136" >3. params match strict schema (extra fields rejected)</text>
+    <text x="216" y="156" >4. resource allowlisted, matches params</text>
+    <text x="216" y="176" >5. emergency stop released</text>
+    <text x="216" y="196" >6. global rate limit</text>
+    <text x="216" y="216" >7. per-incident attempt, action and blast-radius limits</text>
+    <text x="520" y="96"  >8. action has an implementation</text>
+    <text x="520" y="116" >9. preconditions (e.g. target is known-good)</text>
+    <text x="520" y="136" >10. execute phase: fresh, matching dry run</text>
+    <text x="520" y="160" font-weight="700">Approval needed if:</text>
+    <text x="520" y="180" >• stateful/sensitive resource</text>
+    <text x="520" y="198" >• confidence &lt; 0.70</text>
+    <text x="520" y="216" >• autonomy mode = supervised</text>
+  </g>
+  <line x1="802" y1="100" x2="840" y2="88" stroke="#52514e" stroke-width="1.6" marker-end="url(#a)"/>
+  <line x1="802" y1="152" x2="840" y2="152" stroke="#52514e" stroke-width="1.6" marker-end="url(#a)"/>
+  <line x1="802" y1="204" x2="840" y2="216" stroke="#52514e" stroke-width="1.6" marker-end="url(#a)"/>
+  <rect x="842" y="68" width="136" height="40" rx="8" fill="#e7f6ec" stroke="#0ca30c" stroke-width="2"/><text x="910" y="93" text-anchor="middle" font-weight="700" fill="#076b07">✓ ALLOW</text>
+  <rect x="842" y="132" width="136" height="40" rx="8" fill="#fff8e6" stroke="#eda100" stroke-width="2"/><text x="910" y="157" text-anchor="middle" font-weight="700" fill="#7a5200">! APPROVAL</text>
+  <rect x="842" y="196" width="136" height="40" rx="8" fill="#fbe9e9" stroke="#d03b3b" stroke-width="2"/><text x="910" y="221" text-anchor="middle" font-weight="700" fill="#9c2323">✕ DENY</text>
+  <text x="24" y="270" font-size="12.5" fill="#52514e">The diagnosis engine cannot alter any of these checks: they are fixed code driven by a read-only JSON file. Log text, reason strings and</text>
+  <text x="24" y="288" font-size="12.5" fill="#52514e">confidence values are data. Only the executor holds the supervisor operations client, and only after an ALLOW in the execute phase.</text>
+</svg>
