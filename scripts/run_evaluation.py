@@ -71,6 +71,8 @@ def main() -> None:
                                            "dependency_outage,bad_deployment_corrupt_rollback")
     ap.add_argument("--healthy-baseline-s", type=float, default=25.0,
                     help="healthy time required before each injection (known-good marking needs 20 s)")
+    ap.add_argument("--resume", action="store_true",
+                    help="keep valid runs already recorded in this database and only run the missing ones")
     ap.add_argument("--report-only", action="store_true",
                     help="do not inject anything; regenerate reports/ from the data already recorded")
     args = ap.parse_args()
@@ -102,17 +104,37 @@ def main() -> None:
             print(f"    (rate limit {len(recent)}/{rl['max_executions']} in {rl['window_s']}s - waiting {wait_s:.0f}s)", flush=True)
             time.sleep(max(1.0, wait_s))
 
-    log = []
+    def recover_from_suspend() -> None:
+        """Reset and wait for quiet; tolerate further suspends while doing so."""
+        for _ in range(10):
+            try:
+                c.post("/failure-lab/reset", json=OP)
+                if wait(quiet, 180):
+                    return
+            except HostSuspended as exc:
+                print(f"    !! host suspended again while recovering ({exc})", flush=True)
+        raise SystemExit("system did not recover after repeated host suspends")
+
+    # --resume: count valid (non-excluded) runs already recorded and only run the remainder.
+    done: dict[str, int] = {}
+    if args.resume:
+        for r in c.get("/analytics").json()["runs"]:
+            done[r["scenario"]] = done.get(r["scenario"], 0) + 1
+        print(f"resuming; valid runs already recorded: {done}", flush=True)
+
     for rnd in range(1, args.rounds + 1):
         for sc in args.scenarios.split(","):
-            for attempt in range(3):
+            if done.get(sc, 0) >= rnd:
+                continue
+            for _attempt in range(5):
                 try:
-                    log.append(run_one(c, rnd, sc, quiet, respect_rate_limit, args))
+                    run_one(c, rnd, sc, quiet, respect_rate_limit, args)
                     break
                 except HostSuspended as exc:
                     print(f"    !! host suspended during run ({exc}); excluding it and repeating", flush=True)
-                    c.post("/failure-lab/reset", json=OP)
-                    wait(quiet, 180)
+                    recover_from_suspend()
+            else:
+                raise SystemExit(f"{sc}: gave up after repeated host suspends")
     finish(c, args)
 
 
@@ -152,7 +174,10 @@ def run_one(c, rnd, sc, quiet, respect_rate_limit, args):
 
 
 def finish(c, args):
-    wait(quiet_fn(c), 120)
+    try:
+        wait(quiet_fn(c), 120)
+    except HostSuspended:
+        wait(quiet_fn(c), 120, max_gap=10**9)
     analytics = c.get("/analytics").json()
     out = {"generated_at": datetime.now(timezone.utc).isoformat(), "rounds": args.rounds,
            "scenarios": args.scenarios.split(","), "analytics": analytics,
